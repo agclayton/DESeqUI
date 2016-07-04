@@ -35,6 +35,13 @@ ui <- shinyUI(fluidPage(
       tags$hr(),
       textInput('colIDs', label = 'Column Description', placeholder = 'eg.: FT,FT,E,E - NO spaces, comma seperated'),
       textInput('norm', 'Normalization (Exp/Crtl)', placeholder = 'eg.: E/FT'),
+      numericInput('signif', 'Significance level (p_adjusted)', value = 0.1),
+      radioButtons('althyp', label = 'Alternative Hypothesis',
+                   c(Greater = 'greater',
+                     Less = 'less',
+                     Both = ''),
+                   ''
+                   ),
       submitButton(text = 'Apply')
     ),
     
@@ -44,11 +51,16 @@ ui <- shinyUI(fluidPage(
       tabsetPanel(
         tabPanel('Content',tableOutput('contents')),
         tabPanel('PCA', 
-                 h5('PCA-Plot'),
+                 h4('PCA-Plot', align='center'),
                  br(),
                  plotOutput('pca')
-        ),
-        tabPanel('DESeq', plotOutput('plotma'))
+         ),
+        tabPanel('DESeq',
+                 h4('MA-Plot', align='center'),
+                 plotOutput('plotma')
+         ),
+        tabPanel('Result Table',
+                 dataTableOutput('resultTable'))
       )
     )
   )
@@ -91,9 +103,14 @@ server <- shinyServer(function(input, output) {
   
   res <- reactive({
     res <- dds()
+    padj <- input$signif
     norm <- strsplit(input$norm, split = '/')[[1]]
     norm <- c('Conditions', norm)
-    res <- results(res, contrast = norm)
+    if(input$althyp == ''){
+      res <- results(res, contrast = norm, alpha = padj)
+    }else{
+      res <- results(res, contrast = norm, alpha = padj, altHypothesis = input$althyp)
+    }
   })
   
   output$pca <- renderPlot({
@@ -110,10 +127,17 @@ server <- shinyServer(function(input, output) {
   output$plotma <- renderPlot({
     if(length(colData())>1){
       res.df <- res()
-      plotMA(res.df)
+      plotMA(res.df, main='MA-Plot')
     }else{
       NULL
     }
+  })
+  
+  output$resultTable <- renderDataTable({
+    res.df <- as.data.frame(res())
+    res.df <- data.frame('GeneID'=row.names(res.df), res.df)
+    res.df <- subset(res.df, res.df$padj < input$signif)
+    res.df
   })
 })
 
