@@ -13,7 +13,7 @@ library(shiny)
 ui <- shinyUI(fluidPage(
   
   #### FILE UPLOAD ####
-  titlePanel("Uploading Files"),
+  titlePanel("DESeq2 Analysis"),
   sidebarLayout(
     sidebarPanel(
       fileInput('file1', 'Choose CSV File',
@@ -26,12 +26,16 @@ ui <- shinyUI(fluidPage(
                    c(Comma=',',
                      Semicolon=';',
                      Tab='\t'),
-                   ','),
+                   '\t'),
       radioButtons('quote', 'Quote',
                    c(None='',
                      'Double Quote'='"',
                      'Single Quote'="'"),
-                   '"')
+                   '"'),
+      tags$hr(),
+      textInput('colIDs', label = 'Column Description', placeholder = 'eg.: FT,FT,E,E - NO spaces, comma seperated'),
+      textInput('norm', 'Normalization (Exp/Crtl)', placeholder = 'eg.: E/FT'),
+      submitButton(text = 'Apply')
     ),
     
     
@@ -39,7 +43,12 @@ ui <- shinyUI(fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel('Content',tableOutput('contents')),
-        tabPanel('PCA', tableOutput('pca'))
+        tabPanel('PCA', 
+                 h5('PCA-Plot'),
+                 br(),
+                 plotOutput('pca')
+        ),
+        tabPanel('DESeq', plotOutput('plotma'))
       )
     )
   )
@@ -49,14 +58,14 @@ ui <- shinyUI(fluidPage(
 
 
 #### Server ####
+library(DESeq2)
 server <- shinyServer(function(input, output) {
   data <- reactive({
     inFile <- input$file1
     if(is.null(inFile)){return(NULL)}
-    data <- read.csv(inFile$datapath, header=input$header, sep=input$sep, 
-                     quote=input$quote)
-  })  
-  
+    data <- as.matrix(read.csv(inFile$datapath, header=input$header, sep=input$sep, 
+                     quote=input$quote, row.names = 1))
+  })
   
   output$contents <- renderTable({
       
@@ -66,14 +75,46 @@ server <- shinyServer(function(input, output) {
       # column will contain the local filenames where the data can
       # be found.
       
-      if (is.null(data())){return(NULL)}
-      head(data())
+      if (is.null(data())){return(NULL)}else{head(data(), 100)}
     })
     
-    output$sum <- renderTable({
-      if (is.null(data())){return(NULL)}
-      summary(data())
-    })
+  colData <- reactive({
+    names <- input$colIDs
+    names <- strsplit(names, split = ',')[[1]]
+    colData <- data.frame('Samples' = colnames(data()), 'Conditions' = names)
+  })
+  
+  dds <- reactive({
+    dds <- DESeqDataSetFromMatrix(countData = data(), colData = colData(), design=~Conditions)
+    dds <- DESeq(dds)
+  })
+  
+  res <- reactive({
+    res <- dds()
+    norm <- strsplit(input$norm, split = '/')[[1]]
+    norm <- c('Conditions', norm)
+    res <- results(res, contrast = norm)
+  })
+  
+  output$pca <- renderPlot({
+    if(is.null(data()) && is.null(colData())){
+      NULL
+    }else{
+      dds.df <- dds()
+      rld <- rlog(dds.df)
+      plotPCA(rld, intgroup = 'Samples')
+    }
+      
+  })
+    
+  output$plotma <- renderPlot({
+    if(length(colData())>1){
+      res.df <- res()
+      plotMA(res.df)
+    }else{
+      NULL
+    }
+  })
 })
 
 # Run the application 
