@@ -81,6 +81,8 @@ server <- shinyServer(function(input, output) {
   gene.classes <- read.table('GeneClasses.txt', sep='\t', header=T)
   single.genes <- read.table('Tb_singleGenes.txt')
   colnames(single.genes) <- 'GeneID'
+  single.genes.classes <- merge(single.genes, gene.classes)
+  
   data <- reactive({
     inFile <- input$file1
     if(is.null(inFile)){return(NULL)}
@@ -155,6 +157,7 @@ server <- shinyServer(function(input, output) {
   output$resultTable <- renderDataTable({
     res.df <- classes.df()
     res.df <- subset(res.df, res.df$padj < input$signif)
+    res.df <- data.frame(res.df$GeneID, res.df$log2FoldChange, res.df$padj)
     res.df
   })
   
@@ -168,15 +171,28 @@ server <- shinyServer(function(input, output) {
   output$classes <- renderPlot({
     df <- classes.df()
     occurence <- NULL
+    occurence.bg <- NULL
     for(class in levels(df$Class)){
       #print(subset(df, Class == class))
       #print(length(subset(df, Class == class)$Class))
       occurence <- c(occurence, length(subset(df, Class == class)$Class))
+      occurence.bg <- c(occurence.bg, length(subset(single.genes.classes, Class == class)$Class))
     }
-    class.occ <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence)
-    class.occ <- subset(class.occ, Occurence > 0 & Class != 'ZUnknown')
-    ggplot(class.occ, aes(x=Class, y=Occurence)) + geom_bar(stat='identity') +
-      theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1)) +
+    class.occ <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence, 'Sample' = 'Experiment')
+    class.occ <- subset(class.occ, Occurence > 0)
+    
+    class.occ.bg <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence.bg, 'Sample' = 'Background')
+    class.occ.bg <- subset(class.occ.bg, Occurence > 0)
+    
+    class.occ.norm <- class.occ$Occurence / sum(class.occ$Occurence)
+    class.occ <- data.frame(class.occ, 'Normalized' = class.occ.norm)
+    class.occ.bg.norm <- class.occ.bg$Occurence / sum(class.occ.bg$Occurence)
+    class.occ.bg <- data.frame(class.occ.bg, 'Normalized' = class.occ.bg.norm)
+    
+    class.occ.sum <- rbind(class.occ, class.occ.bg)
+    class.occ.sum <- subset(class.occ.sum, Class != 'ZUnknown')
+    ggplot(class.occ.sum, aes(x=Class, y=Normalized, fill=Sample)) + geom_bar(stat='identity', position='dodge') +
+      theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1, size=11)) +
       ggtitle('Gene-Classes')
     
   })
