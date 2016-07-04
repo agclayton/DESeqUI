@@ -16,7 +16,7 @@ ui <- shinyUI(fluidPage(
   titlePanel("DESeq2 Analysis"),
   sidebarLayout(
     sidebarPanel(
-      fileInput('file1', 'Choose CSV File',
+      fileInput('file1', 'Choose Read-Count File',
                 accept=c('text/csv', 
                          'text/comma-separated-values,text/plain', 
                          '.csv')),
@@ -59,6 +59,11 @@ ui <- shinyUI(fluidPage(
                  h4('MA-Plot', align='center'),
                  plotOutput('plotma')
          ),
+        tabPanel('Classes',
+                 plotOutput('classes'),
+                 br(),
+                 br(),
+                 p('The gene-class ZUnknown is remove here, since it often represents the vast majority and therefore makes a evaluation of other classes hard')),
         tabPanel('Result Table',
                  dataTableOutput('resultTable'))
       )
@@ -71,14 +76,22 @@ ui <- shinyUI(fluidPage(
 
 #### Server ####
 library(DESeq2)
+library(ggplot2)
 server <- shinyServer(function(input, output) {
+  gene.classes <- read.table('GeneClasses.txt', sep='\t', header=T)
+  single.genes <- read.table('Tb_singleGenes.txt')
+  colnames(single.genes) <- 'GeneID'
   data <- reactive({
     inFile <- input$file1
     if(is.null(inFile)){return(NULL)}
-    data <- as.matrix(read.csv(inFile$datapath, header=input$header, sep=input$sep, 
-                     quote=input$quote, row.names = 1))
+    data <- read.csv(inFile$datapath, header=input$header, sep=input$sep, 
+                     quote=input$quote)
+    colnames(data)[1] <- 'GeneID'
+    data <- merge(data, single.genes)
+    data <- data.frame(row.names = data$GeneID, data[,-1])
   })
   
+  # Preview of input data
   output$contents <- renderTable({
       
       # input$file1 will be NULL initially. After the user selects
@@ -89,18 +102,21 @@ server <- shinyServer(function(input, output) {
       
       if (is.null(data())){return(NULL)}else{head(data(), 100)}
     })
-    
+  
+  # Generating the Column data frame
   colData <- reactive({
     names <- input$colIDs
     names <- strsplit(names, split = ',')[[1]]
     colData <- data.frame('Samples' = colnames(data()), 'Conditions' = names)
   })
   
+  # Doing the DESeq analysis
   dds <- reactive({
     dds <- DESeqDataSetFromMatrix(countData = data(), colData = colData(), design=~Conditions)
     dds <- DESeq(dds)
   })
   
+  # Extracting the results of the DESeq analysis
   res <- reactive({
     res <- dds()
     padj <- input$signif
@@ -113,6 +129,7 @@ server <- shinyServer(function(input, output) {
     }
   })
   
+  # Generating the PCA plot
   output$pca <- renderPlot({
     if(is.null(data()) && is.null(colData())){
       NULL
@@ -123,7 +140,8 @@ server <- shinyServer(function(input, output) {
     }
       
   })
-    
+  
+  # Generating the MA-plot
   output$plotma <- renderPlot({
     if(length(colData())>1){
       res.df <- res()
@@ -133,12 +151,37 @@ server <- shinyServer(function(input, output) {
     }
   })
   
+  # Generating the results table
   output$resultTable <- renderDataTable({
-    res.df <- as.data.frame(res())
-    res.df <- data.frame('GeneID'=row.names(res.df), res.df)
+    res.df <- classes.df()
     res.df <- subset(res.df, res.df$padj < input$signif)
     res.df
   })
+  
+  classes.df <- reactive({
+    df <- as.data.frame(res())
+    df <- data.frame('GeneID' = row.names(df), df)
+    df <- merge(df, gene.classes)
+    df <- subset(df, df$padj < input$signif)
+  })
+  
+  output$classes <- renderPlot({
+    df <- classes.df()
+    occurence <- NULL
+    for(class in levels(df$Class)){
+      #print(subset(df, Class == class))
+      #print(length(subset(df, Class == class)$Class))
+      occurence <- c(occurence, length(subset(df, Class == class)$Class))
+    }
+    class.occ <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence)
+    class.occ <- subset(class.occ, Occurence > 0 & Class != 'ZUnknown')
+    ggplot(class.occ, aes(x=Class, y=Occurence)) + geom_bar(stat='identity') +
+      theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1)) +
+      ggtitle('Gene-Classes')
+    
+  })
+  
+# End of Server
 })
 
 # Run the application 
