@@ -1,0 +1,9 @@
+name: DESeq2UI
+account: klprint
+server: shinyapps.io
+appId: 112319
+bundleId: 496049
+url: https://klprint.shinyapps.io/DESeq2UI/
+when: 1467639443.05221
+asMultiple: FALSE
+asStatic: FALSE

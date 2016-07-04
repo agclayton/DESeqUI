@@ -65,7 +65,9 @@ ui <- shinyUI(fluidPage(
                  br(),
                  p('The gene-class ZUnknown is remove here, since it often represents the vast majority and therefore makes a evaluation of other classes hard')),
         tabPanel('Result Table',
-                 dataTableOutput('resultTable'))
+                 downloadButton('dload', label='Download'),
+                 dataTableOutput('resultTable')
+                 )
       )
     )
   )
@@ -157,9 +159,18 @@ server <- shinyServer(function(input, output) {
   output$resultTable <- renderDataTable({
     res.df <- classes.df()
     res.df <- subset(res.df, res.df$padj < input$signif)
-    res.df <- data.frame(res.df$GeneID, res.df$log2FoldChange, res.df$padj)
+    res.df <- data.frame('GeneID' = res.df$GeneID, 'log2FoldChange' = res.df$log2FoldChange, 'p_adj' = res.df$padj)
     res.df
   })
+  
+  output$dload <- downloadHandler(
+    filename = function(){'Resutls.txt'},
+    content = function(file){
+      res.df <- classes.df()
+      res.df <- subset(res.df, res.df$padj < input$signif)
+      write.table(res.df, file, quote=F, row.names=F, sep='\t')
+    }
+  )
   
   classes.df <- reactive({
     df <- as.data.frame(res())
