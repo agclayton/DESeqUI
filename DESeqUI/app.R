@@ -167,7 +167,7 @@ server <- shinyServer(function(input, output) {
     filename = function(){'Resutls.txt'},
     content = function(file){
       res.df <- classes.df()
-      res.df <- subset(res.df, res.df$padj < input$signif)
+      res.df <- subset(res.df)
       write.table(res.df, file, quote=F, row.names=F, sep='\t')
     }
   )
