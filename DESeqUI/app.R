@@ -42,7 +42,7 @@ ui <- shinyUI(fluidPage(
                      Both = ''),
                    ''
                    ),
-      submitButton(text = 'Apply')
+      submitButton(text = 'Apply/Update')
     ),
     
     
@@ -77,8 +77,8 @@ ui <- shinyUI(fluidPage(
 
 
 #### Server ####
-library(DESeq2)
-library(ggplot2)
+require(DESeq2)
+require(ggplot2)
 server <- shinyServer(function(input, output) {
   gene.classes <- read.table('GeneClasses.txt', sep='\t', header=T)
   single.genes <- read.table('Tb_singleGenes.txt')
@@ -158,16 +158,21 @@ server <- shinyServer(function(input, output) {
   # Generating the results table
   output$resultTable <- renderDataTable({
     res.df <- classes.df()
-    res.df <- subset(res.df, res.df$padj < input$signif)
-    res.df <- data.frame('GeneID' = res.df$GeneID, 'log2FoldChange' = res.df$log2FoldChange, 'p_adj' = res.df$padj)
+    #res.df <- subset(res.df, res.df$padj < input$signif)
+    res.df <- data.frame('GeneID' = res.df$GeneID, 'log2FoldChange' = res.df$log2FoldChange, 
+                         'p_adj' = res.df$padj, 
+                         'Class' = res.df$Class)
     res.df
   })
   
   output$dload <- downloadHandler(
     filename = function(){'Resutls.txt'},
     content = function(file){
-      res.df <- classes.df()
-      res.df <- subset(res.df, res.df$padj < input$signif)
+      res.all <- res()
+      res.df <- as.data.frame(res.all)
+      res.df <- data.frame('GeneID' = row.names(res.df), res.df)
+      res.df <- merge(res.df, gene.classes, all.x =T)
+      #res.df <- subset(res.df, res.df$padj < input$signif)
       write.table(res.df, file, quote=F, row.names=F, sep='\t')
     }
   )
