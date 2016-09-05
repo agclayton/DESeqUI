@@ -73,18 +73,19 @@ require(DESeq2)
 require(ggplot2)
 server <- shinyServer(function(input, output) {
   gene.classes <- read.table('GeneClasses.txt', sep='\t', header=T)
-  single.genes <- read.table('Tb_singleGenes.txt')
-  colnames(single.genes) <- 'GeneID'
-  single.genes.classes <- merge(single.genes, gene.classes)
+  single.genes <- read.table('UniqueList.txt', sep='\t', header=T, row.names = 1, quote='')
   
   data <- reactive({
     inFile <- input$file1
     if(is.null(inFile)){return(NULL)}
     data <- read.csv(inFile$datapath, header=input$header, sep=input$sep, 
-                     quote=input$quote)
-    colnames(data)[1] <- 'GeneID'
-    data <- merge(data, single.genes)
-    data <- data.frame(row.names = data$GeneID, data[,-1])
+                     quote=input$quote, row.names = 1)
+    
+    data <- merge(single.genes, data, by='row.names')
+    
+    row.names(data) <- data$Row.names
+    data <- data[,-(1:3)]
+    
   })
   
   # Preview of input data
@@ -151,19 +152,21 @@ server <- shinyServer(function(input, output) {
   output$resultTable <- renderDataTable({
     res.df <- classes.df()
     #res.df <- subset(res.df, res.df$padj < input$signif)
-    res.df <- data.frame('GeneID' = res.df$GeneID, 'log2FoldChange' = res.df$log2FoldChange, 
-                         'p_adj' = res.df$padj, 
+    res.df <- data.frame('GeneID' = res.df$Row.names, 
+                         'log2FoldChange' = res.df$log2FoldChange, 
+                         'p_adj' = res.df$padj,
+                         'Annotation' = res.df$Annotation,
                          'Class' = res.df$Class)
     res.df
   })
   
   output$dload <- downloadHandler(
-    filename = function(){'Resutls.txt'},
+    filename = function(){'Results.txt'},
     content = function(file){
       res.all <- res()
       res.df <- as.data.frame(res.all)
-      res.df <- data.frame('GeneID' = row.names(res.df), res.df)
-      res.df <- merge(res.df, gene.classes, all.x =T)
+      res.df <- merge(res.df, single.genes, by='row.names')
+      res.df <- data.frame('GeneID' = res.df$Row.names, res.df[,-1])
       #res.df <- subset(res.df, res.df$padj < input$signif)
       write.table(res.df, file, quote=F, row.names=F, sep='\t')
     }
@@ -171,9 +174,10 @@ server <- shinyServer(function(input, output) {
   
   classes.df <- reactive({
     df <- as.data.frame(res())
-    df <- data.frame('GeneID' = row.names(df), df)
-    df <- merge(df, gene.classes)
+    df <- merge(df, single.genes, by='row.names')
     df <- subset(df, df$padj < input$signif)
+    
+    
   })
   
   output$classes <- renderPlot({
@@ -184,7 +188,7 @@ server <- shinyServer(function(input, output) {
       #print(subset(df, Class == class))
       #print(length(subset(df, Class == class)$Class))
       occurence <- c(occurence, length(subset(df, Class == class)$Class))
-      occurence.bg <- c(occurence.bg, length(subset(single.genes.classes, Class == class)$Class))
+      occurence.bg <- c(occurence.bg, length(subset(single.genes, Class == class)$Class))
     }
     class.occ <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence, 'Sample' = 'Experiment')
     class.occ <- subset(class.occ, Occurence > 0)
