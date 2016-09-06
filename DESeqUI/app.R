@@ -45,14 +45,17 @@ ui <- shinyUI(fluidPage(
         tabPanel('PCA', 
                  h4('PCA-Plot', align='center'),
                  br(),
-                 plotOutput('pca')
+                 plotOutput('pca'),
+                 downloadButton('pcaplot')
          ),
         tabPanel('DESeq',
                  h4('MA-Plot', align='center'),
-                 plotOutput('plotma')
+                 plotOutput('plotma'),
+                 downloadButton('maplot')
          ),
         tabPanel('Classes',
                  plotOutput('classes'),
+                 downloadButton('classesdload'),
                  br(),
                  br(),
                  p('The gene-class ZUnknown is remove here, since it often represents the vast majority and therefore makes a evaluation of other classes hard')),
@@ -81,10 +84,7 @@ server <- shinyServer(function(input, output) {
     data <- read.csv(inFile$datapath, header=input$header, sep=input$sep, 
                      quote=input$quote, row.names = 1)
     
-    data <- merge(single.genes, data, by='row.names')
-    
-    row.names(data) <- data$Row.names
-    data <- data[,-(1:3)]
+    data <- data[row.names(data) %in% row.names(single.genes), ]
     
   })
   
@@ -126,17 +126,28 @@ server <- shinyServer(function(input, output) {
     }
   })
   
+  rld <- reactive({
+    dds.df <- dds()
+    rld <- rlog(dds.df)
+  })
+  
   # Generating the PCA plot
   output$pca <- renderPlot({
     if(is.null(data()) && is.null(colData())){
       NULL
     }else{
-      dds.df <- dds()
-      rld <- rlog(dds.df)
-      plotPCA(rld, intgroup = 'Samples')
+      plotPCA(rld(), intgroup = 'Samples')
     }
       
   })
+  
+  output$pcaplot <- downloadHandler(
+    filename = 'PCA-Plot.pdf',
+    content = function(file) {
+      pca.plot <- plotPCA(rld(), intgroup = 'Samples')
+      ggsave(file, plot = pca.plot, device='pdf')
+    }
+  )
   
   # Generating the MA-plot
   output$plotma <- renderPlot({
@@ -147,6 +158,16 @@ server <- shinyServer(function(input, output) {
       NULL
     }
   })
+  
+  output$maplot <- downloadHandler(
+    filename = 'MA-Plot.pdf',
+    content = function(file) {
+      res.df <- res()
+      pdf(file)
+      plotMA(res.df, main='MA-Plot')
+      dev.off()
+    }
+  )
   
   # Generating the results table
   output$resultTable <- renderDataTable({
@@ -176,11 +197,10 @@ server <- shinyServer(function(input, output) {
     df <- as.data.frame(res())
     df <- merge(df, single.genes, by='row.names')
     df <- subset(df, df$padj < input$signif)
-    
-    
   })
   
-  output$classes <- renderPlot({
+  
+  class.occ.sum <- reactive({
     df <- classes.df()
     occurence <- NULL
     occurence.bg <- NULL
@@ -203,11 +223,25 @@ server <- shinyServer(function(input, output) {
     
     class.occ.sum <- rbind(class.occ, class.occ.bg)
     class.occ.sum <- subset(class.occ.sum, Class != 'ZUnknown')
-    ggplot(class.occ.sum, aes(x=Class, y=Normalized, fill=Sample)) + geom_bar(stat='identity', position='dodge') +
+    return(class.occ.sum)
+  })
+  
+  output$classes <- renderPlot({
+    ggplot(class.occ.sum(), aes(x=Class, y=Normalized, fill=Sample)) + geom_bar(stat='identity', position='dodge') +
       theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1, size=11)) +
       ggtitle('Gene-Classes')
-    
   })
+  
+  output$classesdload <- downloadHandler(
+    filename = 'ClassEnrichment.pdf',
+    content = function(file){
+      p.class <- ggplot(class.occ.sum(), aes(x=Class, y=Normalized, fill=Sample)) + geom_bar(stat='identity', position='dodge') +
+        theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1, size=11)) +
+        ggtitle('Gene-Classes')
+      
+      ggsave(file, plot = p.class, device = 'pdf')
+    }
+  )
   
 # End of Server
 })
