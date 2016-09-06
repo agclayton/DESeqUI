@@ -85,7 +85,8 @@ server <- shinyServer(function(input, output) {
                      quote=input$quote, row.names = 1)
     
     data <- data[row.names(data) %in% row.names(single.genes), ]
-    
+    data <- data[complete.cases(data), ]
+    return(data)
   })
   
   # Preview of input data
@@ -197,6 +198,20 @@ server <- shinyServer(function(input, output) {
     df <- as.data.frame(res())
     df <- merge(df, single.genes, by='row.names')
     df <- subset(df, df$padj < input$signif)
+    
+    if(input$althyp == 'greater'){
+      df <- subset(df, df$log2FoldChange > 0)
+      return(df)
+    }
+    
+    if(input$althyp == 'less'){
+      df <- subset(df, df$log2FoldChange < 0)
+      return(df)
+    }
+    
+    if(input$althyp == ''){
+      return(df)
+    }
   })
   
   
