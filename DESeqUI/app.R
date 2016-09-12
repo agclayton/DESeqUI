@@ -34,6 +34,7 @@ ui <- shinyUI(fluidPage(
                      Both = ''),
                    ''
                    ),
+      numericInput('MinLog2', 'Minimal log2Fold-Change', value=0),
       submitButton(text = 'Apply/Update')
     ),
     
@@ -200,12 +201,12 @@ server <- shinyServer(function(input, output) {
     df <- subset(df, df$padj < input$signif)
     
     if(input$althyp == 'greater'){
-      df <- subset(df, df$log2FoldChange > 0)
+      df <- subset(df, df$log2FoldChange > input$MinLog2)
       return(df)
     }
     
     if(input$althyp == 'less'){
-      df <- subset(df, df$log2FoldChange < 0)
+      df <- subset(df, df$log2FoldChange < input$MinLog2)
       return(df)
     }
     
