@@ -25,6 +25,7 @@ ui <- shinyUI(fluidPage(
                      'Single Quote'="'"),
                    '"'),
       tags$hr(),
+      tags$h4('DESeq2 Parameters'),
       textInput('colIDs', label = 'Column Description', placeholder = 'eg.: FT,FT,E,E - NO spaces, comma seperated'),
       textInput('norm', 'Normalization (Exp/Crtl)', placeholder = 'eg.: E/FT'),
       numericInput('signif', 'Significance level (p_adjusted)', value = 0.1),
@@ -34,7 +35,16 @@ ui <- shinyUI(fluidPage(
                      Both = ''),
                    ''
                    ),
-      numericInput('MinLog2', 'Minimal log2Fold-Change', value=0),
+      tags$hr(),
+      tags$h4('Class enrichment Parameters'),
+      numericInput('class.signif', 'Significance level', value=0.05),
+      radioButtons('class.althyp', 'log2Fold change',
+                   c(Greater = 'greater',
+                     Less = 'less',
+                     both = ''),
+                   'greater'
+                   ),
+      numericInput('MinLog2', 'Cutoff log2Fold-Change', value=0),
       submitButton(text = 'Apply/Update')
     ),
     
@@ -59,6 +69,7 @@ ui <- shinyUI(fluidPage(
                  downloadButton('classesdload'),
                  br(),
                  br(),
+                 plotOutput('boxclass'),
                  p('The gene-class ZUnknown is remove here, since it often represents the vast majority and therefore makes a evaluation of other classes hard')),
         tabPanel('Result Table',
                  downloadButton('dload', label='Download'),
@@ -200,17 +211,17 @@ server <- shinyServer(function(input, output) {
     df <- merge(df, single.genes, by='row.names')
     df <- subset(df, df$padj < input$signif)
     
-    if(input$althyp == 'greater'){
+    if(input$class.althyp == 'greater'){
       df <- subset(df, df$log2FoldChange > input$MinLog2)
       return(df)
     }
     
-    if(input$althyp == 'less'){
+    if(input$class.althyp == 'less'){
       df <- subset(df, df$log2FoldChange < input$MinLog2)
       return(df)
     }
     
-    if(input$althyp == ''){
+    if(input$class.althyp == ''){
       return(df)
     }
   })
@@ -252,14 +263,12 @@ server <- shinyServer(function(input, output) {
     class.occ.bg <- data.frame(class.occ.bg, 'Normalized' = class.occ.bg.norm, 'Fisher.padj' = fisher.pvalue)
     
     class.occ.sum <- rbind(class.occ, class.occ.bg)
-    class.occ.sum <- subset(class.occ.sum, Class != 'ZUnknown' & Fisher.padj < input$signif)
-    print(class.occ.sum)
     return(class.occ.sum)
   })
   
   output$classes <- renderPlot({
     df <- class.occ.sum()
-    df <- subset(df, Class != 'ZUnknown' & Fisher.padj < input$signif)
+    df <- subset(df, Class != 'ZUnknown' & Fisher.padj < input$class.signif)
     print(df)
     ggplot(df, aes(x=Class, y=Normalized, fill=Sample)) + 
       geom_bar(stat='identity', position='dodge') +
@@ -272,7 +281,10 @@ server <- shinyServer(function(input, output) {
   output$classesdload <- downloadHandler(
     filename = 'ClassEnrichment.pdf',
     content = function(file){
-      p.class <- ggplot(class.occ.sum(), aes(x=Class, y=Normalized, fill=Sample)) + 
+      df <- class.occ.sum()
+      df <- subset(df, Class != 'ZUnknown' & Fisher.padj < input$class.signif)
+      
+      p.class <- ggplot(df, aes(x=Class, y=Normalized, fill=Sample)) + 
         geom_bar(stat='identity', position='dodge') +
         theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1, size=11)) +
         geom_text(aes(label=Occurence), position=position_dodge(width=0.9), vjust = -0.25) +
@@ -282,6 +294,15 @@ server <- shinyServer(function(input, output) {
       ggsave(file, plot = p.class, device = 'pdf')
     }
   )
+  
+  output$boxclass <- renderPlot({
+    res.all <- res()
+    res.df <- as.data.frame(res.all)
+    res.df <- merge(res.df, single.genes, by='row.names')
+    res.df <- data.frame('GeneID' = res.df$Row.names, res.df[,-1])
+    res.df <- subset(res.df, padj < input$signif)
+    ggplot(res.df, aes(x=Class, y=log2FoldChange)) + geom_boxplot()
+  })
   
 # End of Server
 })
