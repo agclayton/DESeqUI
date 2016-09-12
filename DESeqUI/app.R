@@ -221,38 +221,62 @@ server <- shinyServer(function(input, output) {
     occurence <- NULL
     occurence.bg <- NULL
     for(class in levels(df$Class)){
-      #print(subset(df, Class == class))
-      #print(length(subset(df, Class == class)$Class))
       occurence <- c(occurence, length(subset(df, Class == class)$Class))
       occurence.bg <- c(occurence.bg, length(subset(single.genes, Class == class)$Class))
     }
     class.occ <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence, 'Sample' = 'Experiment')
-    class.occ <- subset(class.occ, Occurence > 0)
+    #class.occ <- subset(class.occ, Occurence > 0)
     
     class.occ.bg <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence.bg, 'Sample' = 'Background')
-    class.occ.bg <- subset(class.occ.bg, Occurence > 0)
+    #class.occ.bg <- subset(class.occ.bg, Occurence > 0)
+    
+    # Fishers exact test to find only significantly enriched classes
+    fisher.pvalue <- NULL
+    for(class in levels(class.occ$Class)){
+      sam.class <- class.occ[class.occ$Class == class, ]$Occurence
+      sam.class <- c(sam.class, sum(class.occ$Occurence) - sam.class)
+      bg.class <- class.occ.bg[class.occ.bg$Class == class, ]$Occurence
+      bg.class <- c(bg.class, sum(class.occ.bg$Occurence) - bg.class)
+      
+      f.pvalue <- fisher.test(matrix(c(sam.class, bg.class), ncol=2))$p.value
+      
+      fisher.pvalue <- c(fisher.pvalue, f.pvalue)
+    }
+    
+    fisher.pvalue <- p.adjust(fisher.pvalue, method = 'BH')
     
     class.occ.norm <- class.occ$Occurence / sum(class.occ$Occurence)
-    class.occ <- data.frame(class.occ, 'Normalized' = class.occ.norm)
+    class.occ <- data.frame(class.occ, 'Normalized' = class.occ.norm, 'Fisher.padj' = fisher.pvalue)
+    
     class.occ.bg.norm <- class.occ.bg$Occurence / sum(class.occ.bg$Occurence)
-    class.occ.bg <- data.frame(class.occ.bg, 'Normalized' = class.occ.bg.norm)
+    class.occ.bg <- data.frame(class.occ.bg, 'Normalized' = class.occ.bg.norm, 'Fisher.padj' = fisher.pvalue)
     
     class.occ.sum <- rbind(class.occ, class.occ.bg)
-    class.occ.sum <- subset(class.occ.sum, Class != 'ZUnknown')
+    class.occ.sum <- subset(class.occ.sum, Class != 'ZUnknown' & Fisher.padj < input$signif)
+    print(class.occ.sum)
     return(class.occ.sum)
   })
   
   output$classes <- renderPlot({
-    ggplot(class.occ.sum(), aes(x=Class, y=Normalized, fill=Sample)) + geom_bar(stat='identity', position='dodge') +
+    df <- class.occ.sum()
+    df <- subset(df, Class != 'ZUnknown' & Fisher.padj < input$signif)
+    print(df)
+    ggplot(df, aes(x=Class, y=Normalized, fill=Sample)) + 
+      geom_bar(stat='identity', position='dodge') +
       theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1, size=11)) +
+      geom_text(aes(label=Occurence), position=position_dodge(width=0.9), vjust = -0.25) +
+      geom_text(aes(label=round(Fisher.padj, digits = 3), y=0), vjust=1.25) +
       ggtitle('Gene-Classes')
   })
   
   output$classesdload <- downloadHandler(
     filename = 'ClassEnrichment.pdf',
     content = function(file){
-      p.class <- ggplot(class.occ.sum(), aes(x=Class, y=Normalized, fill=Sample)) + geom_bar(stat='identity', position='dodge') +
+      p.class <- ggplot(class.occ.sum(), aes(x=Class, y=Normalized, fill=Sample)) + 
+        geom_bar(stat='identity', position='dodge') +
         theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1, size=11)) +
+        geom_text(aes(label=Occurence), position=position_dodge(width=0.9), vjust = -0.25) +
+        geom_text(aes(label=round(Fisher.padj, digits = 3), y=0), vjust=1.25) +
         ggtitle('Gene-Classes')
       
       ggsave(file, plot = p.class, device = 'pdf')
