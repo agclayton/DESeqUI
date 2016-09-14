@@ -28,7 +28,7 @@ ui <- shinyUI(fluidPage(
       tags$h4('DESeq2 Parameters'),
       textInput('colIDs', label = 'Column Description', placeholder = 'eg.: FT,FT,E,E - NO spaces, comma seperated'),
       textInput('norm', 'Normalization (Exp/Crtl)', placeholder = 'eg.: E/FT'),
-      numericInput('signif', 'Significance level (p_adjusted)', value = 0.1),
+      numericInput('signif', 'Significance level (p_adjusted)', value = 0.1, step = 0.05),
       radioButtons('althyp', label = 'Alternative Hypothesis',
                    c(Greater = 'greater',
                      Less = 'less',
@@ -41,7 +41,7 @@ ui <- shinyUI(fluidPage(
       radioButtons('class.althyp', 'log2Fold change',
                    c(Greater = 'greater',
                      Less = 'less',
-                     both = ''),
+                     both = 'two.sided'),
                    'greater'
                    ),
       numericInput('MinLog2', 'Cutoff log2Fold-Change', value=0),
@@ -249,7 +249,9 @@ server <- shinyServer(function(input, output) {
       bg.class <- class.occ.bg[class.occ.bg$Class == class, ]$Occurence
       bg.class <- c(bg.class, sum(class.occ.bg$Occurence) - bg.class)
       
-      f.pvalue <- fisher.test(matrix(c(sam.class, bg.class), ncol=2))$p.value
+      f.pvalue <- fisher.test(
+        matrix(c(sam.class, bg.class), ncol=2), 
+        alternative = 'greater')$p.value
       
       fisher.pvalue <- c(fisher.pvalue, f.pvalue)
     }
@@ -301,7 +303,9 @@ server <- shinyServer(function(input, output) {
     res.df <- merge(res.df, single.genes, by='row.names')
     res.df <- data.frame('GeneID' = res.df$Row.names, res.df[,-1])
     res.df <- subset(res.df, padj < input$signif)
-    ggplot(res.df, aes(x=Class, y=log2FoldChange)) + geom_boxplot()
+    ggplot(res.df, aes(x=Class, y=log2FoldChange)) + geom_boxplot() +
+      theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5)) +
+      geom_hline(yintercept = input$MinLog2, color='red')
   })
   
 # End of Server
