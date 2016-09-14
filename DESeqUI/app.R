@@ -68,9 +68,13 @@ ui <- shinyUI(fluidPage(
                  plotOutput('classes'),
                  downloadButton('classesdload'),
                  br(),
+                 p('The gene-class ZUnknown is remove here, since it often represents the vast majority and therefore makes a evaluation of other classes hard'),
                  br(),
                  plotOutput('boxclass'),
-                 p('The gene-class ZUnknown is remove here, since it often represents the vast majority and therefore makes a evaluation of other classes hard')),
+                 br(),
+                 plotOutput('c.cycle')
+                 
+        ),
         tabPanel('Result Table',
                  downloadButton('dload', label='Download'),
                  dataTableOutput('resultTable')
@@ -86,9 +90,13 @@ ui <- shinyUI(fluidPage(
 #### Server ####
 require(DESeq2)
 require(ggplot2)
+
 server <- shinyServer(function(input, output) {
   gene.classes <- read.table('GeneClasses.txt', sep='\t', header=T)
   single.genes <- read.table('UniqueList.txt', sep='\t', header=T, row.names = 1, quote='')
+  cell.cycle <- read.table('Gene_CellCycle_Peak.txt',
+                           sep = '\t', header=T,
+                           row.names = 1)
   
   data <- reactive({
     inFile <- input$file1
@@ -306,6 +314,21 @@ server <- shinyServer(function(input, output) {
     ggplot(res.df, aes(x=Class, y=log2FoldChange)) + geom_boxplot() +
       theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5)) +
       geom_hline(yintercept = input$MinLog2, color='red')
+  })
+  
+  c.cycle.df <- reactive({
+    df <- classes.df()
+    row.names(df) <- df$Row.names
+    df <- df[,-1]
+    print(head(df))
+    print(head(cell.cycle))
+    df <- merge(df, cell.cycle, by='row.names')
+    return(df)
+  })
+  
+  output$c.cycle <- renderPlot({
+    df <- c.cycle.df()
+    ggplot(df, aes(x=peak.time)) + geom_bar()
   })
   
 # End of Server
