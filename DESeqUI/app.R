@@ -51,30 +51,48 @@ ui <- shinyUI(fluidPage(
     
     #### MAIN PANEL ####
     mainPanel(
+      #### Content panel ####
       tabsetPanel(
         tabPanel('Content',tableOutput('contents')),
+        
+        #### PCA Panel ####
         tabPanel('PCA', 
                  h4('PCA-Plot', align='center'),
                  br(),
                  plotOutput('pca'),
-                 downloadButton('pcaplot')
+                 downloadButton('pcaplot'),
+                 br(),
+                 plotOutput('pca.groups')
          ),
+        
+        #### DESeq Panel ####
         tabPanel('DESeq',
                  h4('MA-Plot', align='center'),
                  plotOutput('plotma'),
                  downloadButton('maplot')
          ),
+        
+        #### Classes Panel ####
         tabPanel('Classes',
                  plotOutput('classes'),
                  downloadButton('classesdload'),
                  br(),
                  p('The gene-class ZUnknown is remove here, since it often represents the vast majority and therefore makes a evaluation of other classes hard'),
                  br(),
-                 plotOutput('boxclass'),
                  br(),
-                 plotOutput('c.cycle')
+                 plotOutput('boxclass'),
+                 downloadButton('boxclass.dload'),
+                 p('This plot shows the behaviour of each class, considering significant DE-genes.'),
+                 br(),
+                 br(),
+                 plotOutput('c.cycle'),
+                 downloadButton('c.cycle.dload'),
+                 br(),
+                 p('The plot shows the number of selected genes peaking at a specific time during the cell-cycle')
                  
         ),
+        
+        ##### Results table panel ####
         tabPanel('Result Table',
                  downloadButton('dload', label='Download'),
                  dataTableOutput('resultTable')
@@ -152,7 +170,7 @@ server <- shinyServer(function(input, output) {
     rld <- rlog(dds.df)
   })
   
-  # Generating the PCA plot
+  #### PCA plot ####
   output$pca <- renderPlot({
     if(is.null(data()) && is.null(colData())){
       NULL
@@ -160,6 +178,14 @@ server <- shinyServer(function(input, output) {
       plotPCA(rld(), intgroup = 'Samples')
     }
       
+  })
+  
+  output$pca.groups <- renderPlot({
+    if(is.null(data()) && is.null(colData())){
+      NULL
+    }else{
+      plotPCA(rld(), intgroup = 'Conditions')
+    }
   })
   
   output$pcaplot <- downloadHandler(
@@ -170,7 +196,7 @@ server <- shinyServer(function(input, output) {
     }
   )
   
-  # Generating the MA-plot
+  #### MA-plot ####
   output$plotma <- renderPlot({
     if(length(colData())>1){
       res.df <- res()
@@ -190,7 +216,7 @@ server <- shinyServer(function(input, output) {
     }
   )
   
-  # Generating the results table
+  #### Results table ####
   output$resultTable <- renderDataTable({
     res.df <- classes.df()
     #res.df <- subset(res.df, res.df$padj < input$signif)
@@ -214,6 +240,7 @@ server <- shinyServer(function(input, output) {
     }
   )
   
+  #### Subset f. Class enr. ####
   classes.df <- reactive({
     df <- as.data.frame(res())
     df <- merge(df, single.genes, by='row.names')
@@ -234,7 +261,7 @@ server <- shinyServer(function(input, output) {
     }
   })
   
-  
+  #### Class Enrichment ####
   class.occ.sum <- reactive({
     df <- classes.df()
     occurence <- NULL
@@ -276,60 +303,78 @@ server <- shinyServer(function(input, output) {
     return(class.occ.sum)
   })
   
-  output$classes <- renderPlot({
+  class.plot <- reactive({
     df <- class.occ.sum()
     df <- subset(df, Class != 'ZUnknown' & Fisher.padj < input$class.signif)
     print(df)
-    ggplot(df, aes(x=Class, y=Normalized, fill=Sample)) + 
+    c.plot <- ggplot(df, aes(x=Class, y=Normalized, fill=Sample)) + 
       geom_bar(stat='identity', position='dodge') +
       theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1, size=11)) +
       geom_text(aes(label=Occurence), position=position_dodge(width=0.9), vjust = -0.25) +
       geom_text(aes(label=round(Fisher.padj, digits = 3), y=0), vjust=1.25) +
       ggtitle('Gene-Classes')
+    return(c.plot)
+  })
+  
+  output$classes <- renderPlot({
+    class.plot()
   })
   
   output$classesdload <- downloadHandler(
     filename = 'ClassEnrichment.pdf',
     content = function(file){
-      df <- class.occ.sum()
-      df <- subset(df, Class != 'ZUnknown' & Fisher.padj < input$class.signif)
-      
-      p.class <- ggplot(df, aes(x=Class, y=Normalized, fill=Sample)) + 
-        geom_bar(stat='identity', position='dodge') +
-        theme(axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1, size=11)) +
-        geom_text(aes(label=Occurence), position=position_dodge(width=0.9), vjust = -0.25) +
-        geom_text(aes(label=round(Fisher.padj, digits = 3), y=0), vjust=1.25) +
-        ggtitle('Gene-Classes')
-      
+      p.class <- class.plot()
       ggsave(file, plot = p.class, device = 'pdf')
     }
   )
   
-  output$boxclass <- renderPlot({
+  box.class <- reactive({
     res.all <- res()
     res.df <- as.data.frame(res.all)
     res.df <- merge(res.df, single.genes, by='row.names')
     res.df <- data.frame('GeneID' = res.df$Row.names, res.df[,-1])
     res.df <- subset(res.df, padj < input$signif)
-    ggplot(res.df, aes(x=Class, y=log2FoldChange)) + geom_boxplot() +
+    box.plot <- ggplot(res.df, aes(x=Class, y=log2FoldChange)) + geom_boxplot() +
       theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5)) +
       geom_hline(yintercept = input$MinLog2, color='red')
+    
+    return(box.plot)
   })
   
-  c.cycle.df <- reactive({
+  output$boxclass <- renderPlot({
+    box.class()
+  })
+  
+  output$boxclass.dload <- downloadHandler(
+    filename = 'ClassBoxplot.pdf',
+    content = function(file){
+      b.class <- box.class()
+      ggsave(file, plot = b.class, device='pdf', width=12, units = 'in')
+    }
+  )
+  
+  c.cycle <- reactive({
     df <- classes.df()
     row.names(df) <- df$Row.names
     df <- df[,-1]
     print(head(df))
     print(head(cell.cycle))
     df <- merge(df, cell.cycle, by='row.names')
-    return(df)
+    p.plot <- ggplot(df, aes(x=peak.time)) + geom_bar()
+    return(p.plot)
   })
   
   output$c.cycle <- renderPlot({
-    df <- c.cycle.df()
-    ggplot(df, aes(x=peak.time)) + geom_bar()
+    c.cycle()
   })
+  
+  output$c.cycle.dload <- downloadHandler(
+    filename = 'CellCycle.pdf',
+    content = function(file){
+      df <- c.cycle.df()
+      ggsave(file, plot = c.cycle, device = 'pdf')
+    }
+  )
   
 # End of Server
 })
