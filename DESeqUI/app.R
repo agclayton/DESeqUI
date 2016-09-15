@@ -100,6 +100,7 @@ ui <- shinyUI(fluidPage(
       )
     )
   )
+# End of UI
 ))
 
 
@@ -171,6 +172,8 @@ server <- shinyServer(function(input, output) {
   })
   
   #### PCA plot ####
+  # Generating the PCA plot using the column names as labels
+  # to identify each point
   output$pca <- renderPlot({
     if(is.null(data()) && is.null(colData())){
       NULL
@@ -180,6 +183,9 @@ server <- shinyServer(function(input, output) {
       
   })
   
+  # This plot should help to see
+  # whether replicates of the same condition cluster
+  # well or if they mix
   output$pca.groups <- renderPlot({
     if(is.null(data()) && is.null(colData())){
       NULL
@@ -188,6 +194,7 @@ server <- shinyServer(function(input, output) {
     }
   })
   
+  # Download the intgroup = samples plot
   output$pcaplot <- downloadHandler(
     filename = 'PCA-Plot.pdf',
     content = function(file) {
@@ -206,6 +213,7 @@ server <- shinyServer(function(input, output) {
     }
   })
   
+  # Save the MA-plot
   output$maplot <- downloadHandler(
     filename = 'MA-Plot.pdf',
     content = function(file) {
@@ -217,9 +225,9 @@ server <- shinyServer(function(input, output) {
   )
   
   #### Results table ####
+  # The following generates the result table
   output$resultTable <- renderDataTable({
     res.df <- classes.df()
-    #res.df <- subset(res.df, res.df$padj < input$signif)
     res.df <- data.frame('GeneID' = res.df$Row.names, 
                          'log2FoldChange' = res.df$log2FoldChange, 
                          'p_adj' = res.df$padj,
@@ -243,42 +251,48 @@ server <- shinyServer(function(input, output) {
   #### Subset f. Class enr. ####
   classes.df <- reactive({
     df <- as.data.frame(res())
-    df <- merge(df, single.genes, by='row.names')
-    df <- subset(df, df$padj < input$signif)
+    df <- merge(df, single.genes, by='row.names') # pack the result table and the unique gene list together in one df
+    df <- subset(df, df$padj < input$signif) # Only look at data which is below the significance value
     
     if(input$class.althyp == 'greater'){
-      df <- subset(df, df$log2FoldChange > input$MinLog2)
+      df <- subset(df, df$log2FoldChange > input$MinLog2) # Remove everything below log2FoldChange cutoff
       return(df)
     }
     
     if(input$class.althyp == 'less'){
-      df <- subset(df, df$log2FoldChange < input$MinLog2)
+      df <- subset(df, df$log2FoldChange < input$MinLog2) # Remove everything above log2FoldChange cutoff
       return(df)
     }
     
     if(input$class.althyp == ''){
-      return(df)
+      return(df) # return all significant genes, without cutoff
     }
   })
   
   #### Class Enrichment ####
+  # The following function tries to find significant enriched gene classes
   class.occ.sum <- reactive({
-    df <- classes.df()
-    occurence <- NULL
-    occurence.bg <- NULL
+    df <- classes.df() # Get the DESeq2 results data frame with Class and Annotation column
+    occurence <- NULL # Initialize the counting vector for the sample
+    occurence.bg <- NULL # Initialize the counting vector for the background
+    # As background the whole unique gene list is used. This gives an idea about the distribution
+    # of classes, if a random picking would be applied.
+    
+    # Loop over all classes and count their occurence in the sample (genes withing the previous specified cutoffs,
+    # padj and log2FoldChange)
     for(class in levels(df$Class)){
       occurence <- c(occurence, length(subset(df, Class == class)$Class))
       occurence.bg <- c(occurence.bg, length(subset(single.genes, Class == class)$Class))
     }
+    
     class.occ <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence, 'Sample' = 'Experiment')
-    #class.occ <- subset(class.occ, Occurence > 0)
     
     class.occ.bg <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence.bg, 'Sample' = 'Background')
-    #class.occ.bg <- subset(class.occ.bg, Occurence > 0)
     
     # Fishers exact test to find only significantly enriched classes
     fisher.pvalue <- NULL
     for(class in levels(class.occ$Class)){
+      # The following generates the fisher.test matrix
       sam.class <- class.occ[class.occ$Class == class, ]$Occurence
       sam.class <- c(sam.class, sum(class.occ$Occurence) - sam.class)
       bg.class <- class.occ.bg[class.occ.bg$Class == class, ]$Occurence
@@ -286,23 +300,30 @@ server <- shinyServer(function(input, output) {
       
       f.pvalue <- fisher.test(
         matrix(c(sam.class, bg.class), ncol=2), 
-        alternative = 'greater')$p.value
+        alternative = 'greater')$p.value # We are only interested in enrichment in the specified subset
       
-      fisher.pvalue <- c(fisher.pvalue, f.pvalue)
+      fisher.pvalue <- c(fisher.pvalue, f.pvalue) # save the fisher test pvalues
     }
     
+    # Since we test multiple times for significance, the FDR must be calculated.
+    # Here I use the p.adjust function and the method according to Benjamini-Hochberg
     fisher.pvalue <- p.adjust(fisher.pvalue, method = 'BH')
     
+    # Normailize the appearance of each class with the number of genes being looked at.
+    # This generates a nice plot, comparing the percentage in the unique-gene list and the 
+    # data subset.
     class.occ.norm <- class.occ$Occurence / sum(class.occ$Occurence)
     class.occ <- data.frame(class.occ, 'Normalized' = class.occ.norm, 'Fisher.padj' = fisher.pvalue)
     
     class.occ.bg.norm <- class.occ.bg$Occurence / sum(class.occ.bg$Occurence)
     class.occ.bg <- data.frame(class.occ.bg, 'Normalized' = class.occ.bg.norm, 'Fisher.padj' = fisher.pvalue)
     
+    # Putting background and data subset in one data frame for plotting
     class.occ.sum <- rbind(class.occ, class.occ.bg)
     return(class.occ.sum)
   })
   
+  # Generate the significantly enriched (fisher exact test) classes barplot
   class.plot <- reactive({
     df <- class.occ.sum()
     df <- subset(df, Class != 'ZUnknown' & Fisher.padj < input$class.signif)
@@ -328,6 +349,7 @@ server <- shinyServer(function(input, output) {
     }
   )
   
+  # Generate the boxplot which observes all significant (according to DESeq2) genes' classes
   box.class <- reactive({
     res.all <- res()
     res.df <- as.data.frame(res.all)
@@ -357,9 +379,7 @@ server <- shinyServer(function(input, output) {
     df <- classes.df()
     row.names(df) <- df$Row.names
     df <- df[,-1]
-    print(head(df))
-    print(head(cell.cycle))
-    df <- merge(df, cell.cycle, by='row.names')
+    df <- merge(df, cell.cycle, by='row.names')  # annotate each gene with its peak time of expression
     p.plot <- ggplot(df, aes(x=peak.time)) + geom_bar()
     return(p.plot)
   })
