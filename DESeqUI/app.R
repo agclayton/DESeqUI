@@ -53,7 +53,11 @@ ui <- shinyUI(fluidPage(
     mainPanel(
       #### Content panel ####
       tabsetPanel(
-        tabPanel('Content',tableOutput('contents')),
+        tabPanel('Content',
+                 downloadButton('rpm.dload',
+                                label = 'RPM data download'),
+                 tableOutput('contents'),
+                 tableOutput('rpm.content')),
         
         #### PCA Panel ####
         tabPanel('PCA', 
@@ -128,6 +132,31 @@ server <- shinyServer(function(input, output) {
     return(data)
   })
   
+  data.rpm <- reactive({
+    df <- data()
+    df.colsum <- colSums(df)
+    
+    for(colName in colnames(df)){
+      df[[colName]] <- (df[[colName]] / df.colsum[[colName]]) *1000000
+    }
+    return(df)
+  })
+  
+  output$rpm.content <- renderTable({
+    if(is.null(data.rpm())){return(NULL)}else{head(data.rpm(), 30)}
+  })
+  
+  
+  output$rpm.dload <- downloadHandler(
+    filename = 'RPM_data.txt',
+    content = function(file){
+      df <- data.rpm()
+      df <- data.frame('GeneID' = row.names(df),
+                       df)
+      write.table(df, file=file, sep='\t', row.names = F, quote = F)
+    }
+  )
+  
   # Preview of input data
   output$contents <- renderTable({
       
@@ -137,7 +166,7 @@ server <- shinyServer(function(input, output) {
       # column will contain the local filenames where the data can
       # be found.
       
-      if (is.null(data())){return(NULL)}else{head(data(), 100)}
+      if (is.null(data())){return(NULL)}else{head(data(), 30)}
     })
   
   # Generating the Column data frame
