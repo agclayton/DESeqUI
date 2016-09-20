@@ -1,6 +1,6 @@
 
 library(shiny)
-
+require(plotly)
 #### UI ####
 ui <- shinyUI(fluidPage(
   
@@ -92,7 +92,10 @@ ui <- shinyUI(fluidPage(
                  plotOutput('c.cycle'),
                  downloadButton('c.cycle.dload'),
                  br(),
-                 p('The plot shows the number of selected genes peaking at a specific time during the cell-cycle')
+                 p('The plot shows the number of selected genes peaking at a specific time during the cell-cycle'),
+                 br(),
+                 plotlyOutput('len2log'),
+                 downloadButton('len2log.dload')
                  
         ),
         
@@ -116,7 +119,9 @@ require(ggplot2)
 
 server <- shinyServer(function(input, output) {
   gene.classes <- read.table('GeneClasses.txt', sep='\t', header=T)
-  single.genes <- read.table('UniqueList.txt', sep='\t', header=T, row.names = 1, quote='')
+  # single.genes <- read.table('UniqueList.txt', sep='\t', header=T, row.names = 1, quote='')
+  single.genes <- read.table('unique_list_cds-lengths.txt', 
+                             sep='\t', header=T, row.names = 1, quote='')
   cell.cycle <- read.table('Gene_CellCycle_Peak.txt',
                            sep = '\t', header=T,
                            row.names = 1)
@@ -388,7 +393,8 @@ server <- shinyServer(function(input, output) {
     res.df <- subset(res.df, padj < input$signif)
     box.plot <- ggplot(res.df, aes(x=Class, y=log2FoldChange)) + geom_boxplot() +
       theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5)) +
-      geom_hline(yintercept = input$MinLog2, color='red')
+      geom_hline(yintercept = input$MinLog2, color='red') +
+      ggtitle('Subset Fraction: Gene Class distribution')
     
     return(box.plot)
   })
@@ -401,7 +407,9 @@ server <- shinyServer(function(input, output) {
     filename = 'ClassBoxplot.pdf',
     content = function(file){
       b.class <- box.class()
-      ggsave(file, plot = b.class, device='pdf', width=12, units = 'in')
+      ggsave(file, plot = b.class, device='pdf', width=12,
+             height = 5, 
+             units = 'in')
     }
   )
   
@@ -410,7 +418,8 @@ server <- shinyServer(function(input, output) {
     row.names(df) <- df$Row.names
     df <- df[,-1]
     df <- merge(df, cell.cycle, by='row.names')  # annotate each gene with its peak time of expression
-    p.plot <- ggplot(df, aes(x=peak.time)) + geom_bar()
+    p.plot <- ggplot(df, aes(x=peak.time)) + geom_bar() +
+      ggtitle('Subset Fraction: Peak of expression in cellcycle')
     return(p.plot)
   })
   
@@ -421,8 +430,39 @@ server <- shinyServer(function(input, output) {
   output$c.cycle.dload <- downloadHandler(
     filename = 'CellCycle.pdf',
     content = function(file){
-      df <- c.cycle.df()
-      ggsave(file, plot = c.cycle, device = 'pdf')
+      ggsave(file, plot = c.cycle(), device = 'pdf', width = 8,
+             height = 5, 
+             units = 'in')
+    }
+  )
+  
+  len2log.plot <- reactive({
+    df <- classes.df()
+    row.names(df) <- df$Row.names
+    df <- df[,-1]
+    print(head(df))
+    df$ORFlength <- as.numeric(as.character(df$ORFlength))
+    
+    df.p <- ggplot(df, aes(x=ORFlength, y=log2FoldChange, text=Annotation)) +
+      geom_point() +
+      scale_x_continuous(trans = 'log2') +
+      ylab('Log(2)-Fold Change') +
+      xlab('CDS Length [bp] log(2)-scale')
+    
+    return(df.p)
+  })
+  
+  output$len2log <- renderPlotly({
+    # Renders the plot showing CDS length vs log2FoldChange
+    ggplotly(len2log.plot())
+  })
+  
+  output$len2log.dload <- downloadHandler(
+    filename = 'Length_vs_log2FoldChange.pdf',
+    content = function(file){
+      ggsave(file, plot = len2log.plot(), device = 'pdf', width = 8,
+             height = 5, 
+             units = 'in')
     }
   )
   
