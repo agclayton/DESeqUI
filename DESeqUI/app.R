@@ -120,7 +120,7 @@ require(ggplot2)
 server <- shinyServer(function(input, output) {
   gene.classes <- read.table('GeneClasses.txt', sep='\t', header=T)
   # single.genes <- read.table('UniqueList.txt', sep='\t', header=T, row.names = 1, quote='')
-  single.genes <- read.table('unique_list_cds-lengths.txt', 
+  single.genes <- read.table('unique_list_transcLength.txt', 
                              sep='\t', header=T, row.names = 1, quote='')
   cell.cycle <- read.table('Gene_CellCycle_Peak.txt',
                            sep = '\t', header=T,
@@ -391,7 +391,8 @@ server <- shinyServer(function(input, output) {
     res.df <- merge(res.df, single.genes, by='row.names')
     res.df <- data.frame('GeneID' = res.df$Row.names, res.df[,-1])
     res.df <- subset(res.df, padj < input$signif)
-    box.plot <- ggplot(res.df, aes(x=Class, y=log2FoldChange)) + geom_boxplot() +
+    box.plot <- ggplot(res.df, aes(x=Class, y=log2FoldChange)) + 
+      geom_boxplot() +
       theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5)) +
       geom_hline(yintercept = input$MinLog2, color='red') +
       ggtitle('Subset Fraction: Gene Class distribution')
@@ -437,17 +438,23 @@ server <- shinyServer(function(input, output) {
   )
   
   len2log.plot <- reactive({
-    df <- classes.df()
+    df <- as.data.frame(res())
+    df <- merge(df, single.genes, by='row.names') # pack the result table and the unique gene list together in one df
+    #df <- subset(df, df$padj < input$signif)
     row.names(df) <- df$Row.names
     df <- df[,-1]
-    print(head(df))
-    df$ORFlength <- as.numeric(as.character(df$ORFlength))
+
+    df$TranscriptLength <- as.numeric(as.character(df$TranscriptLength))
     
-    df.p <- ggplot(df, aes(x=ORFlength, y=log2FoldChange, text=Annotation)) +
-      geom_point() +
+    df.p <- ggplot(df, aes(x=TranscriptLength, y=log2FoldChange, text=Annotation,
+                           color= padj < input$signif)) +
+      scale_color_manual(name = paste('padj <', input$signif, sep = ' '), 
+                         values = setNames(c('red', 'black'), c(T,F))) +
+      geom_point(size = 0.5) +
       scale_x_continuous(trans = 'log2') +
       ylab('Log(2)-Fold Change') +
-      xlab('CDS Length [bp] log(2)-scale')
+      xlab('Transcript Length [bp] log(2)-scale') +
+      geom_hline(yintercept = input$MinLog2, color='gray')
     
     return(df.p)
   })
