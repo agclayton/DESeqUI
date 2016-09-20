@@ -311,7 +311,8 @@ server <- shinyServer(function(input, output) {
     # padj and log2FoldChange)
     for(class in levels(df$Class)){
       occurence <- c(occurence, length(subset(df, Class == class)$Class))
-      occurence.bg <- c(occurence.bg, length(subset(single.genes, Class == class)$Class))
+      occurence.bg <- c(occurence.bg, length(subset(single.genes[row.names(single.genes) %in% row.names(as.data.frame(res())), ], 
+                                                    Class == class)$Class))
     }
     
     class.occ <- data.frame('Class' = levels(df$Class), 'Occurence' = occurence, 'Sample' = 'Experiment')
