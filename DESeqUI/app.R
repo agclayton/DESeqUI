@@ -407,8 +407,7 @@ server <- shinyServer(function(input, output) {
   output$boxclass.dload <- downloadHandler(
     filename = 'ClassBoxplot.pdf',
     content = function(file){
-      b.class <- box.class()
-      ggsave(file, plot = b.class, device='pdf', width=12,
+      ggsave(file, plot = box.class(), device='pdf', width=12,
              height = 5, 
              units = 'in')
     }
