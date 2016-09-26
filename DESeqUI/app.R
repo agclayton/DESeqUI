@@ -66,7 +66,8 @@ ui <- shinyUI(fluidPage(
                  plotOutput('pca'),
                  downloadButton('pcaplot'),
                  br(),
-                 plotOutput('pca.groups')
+                 plotOutput('pca.groups'),
+                 downloadButton('dload.pca.groups')
          ),
         
         #### DESeq Panel ####
@@ -233,6 +234,14 @@ server <- shinyServer(function(input, output) {
     filename = 'PCA-Plot.pdf',
     content = function(file) {
       pca.plot <- plotPCA(rld(), intgroup = 'Samples')
+      ggsave(file, plot = pca.plot, device='pdf')
+    }
+  )
+  
+  output$dload.pca.groups <- downloadHandler(
+    filename = 'PCA-Group-Plot.pdf',
+    content = function(file) {
+      pca.plot <- plotPCA(rld(), intgroup = 'Conditions')
       ggsave(file, plot = pca.plot, device='pdf')
     }
   )
