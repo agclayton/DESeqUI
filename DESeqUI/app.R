@@ -62,11 +62,7 @@ ui <- shinyUI(fluidPage(
         #### PCA Panel ####
         tabPanel('PCA', 
                  h4('PCA-Plot', align='center'),
-                 br(),
-                 plotOutput('pca'),
-                 downloadButton('pcaplot'),
-                 br(),
-                 plotOutput('pca.groups'),
+                 plotlyOutput('pca.groups'),
                  downloadButton('dload.pca.groups')
          ),
         
@@ -207,25 +203,24 @@ server <- shinyServer(function(input, output) {
   })
   
   #### PCA plot ####
-  # Generating the PCA plot using the column names as labels
-  # to identify each point
-  output$pca <- renderPlot({
-    if(is.null(data()) && is.null(colData())){
-      NULL
-    }else{
-      plotPCA(rld(), intgroup = 'Samples')
-    }
-      
-  })
   
   # This plot should help to see
   # whether replicates of the same condition cluster
   # well or if they mix
-  output$pca.groups <- renderPlot({
+  output$pca.groups <- renderPlotly({
     if(is.null(data()) && is.null(colData())){
       NULL
     }else{
-      plotPCA(rld(), intgroup = 'Conditions')
+      pca <- plotPCA(rld(), intgroup = 'Conditions', returnData=TRUE)
+      pca.s <- plotPCA(rld(), intgroup = 'Samples', returnData=TRUE)
+      percentVar <- round(100 * attr(pca, "percentVar"))
+      
+      pca.pl <- ggplot(pca, aes(PC1, PC2, color=Conditions, text = pca.s$Samples)) +
+        geom_point(size=3) +
+        xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+        ylab(paste0("PC2: ",percentVar[2],"% variance"))
+      
+      ggplotly(pca.pl, tooltip = 'text')
     }
   })
   
