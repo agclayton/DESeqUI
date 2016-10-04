@@ -417,6 +417,7 @@ server <- shinyServer(function(input, output) {
     }
   )
   
+  #### Cell cycle plot ####
   c.cycle <- reactive({
     df <- classes.df()
     row.names(df) <- df$Row.names
