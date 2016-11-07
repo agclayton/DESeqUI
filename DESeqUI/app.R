@@ -236,8 +236,18 @@ server <- shinyServer(function(input, output) {
   output$dload.pca.groups <- downloadHandler(
     filename = 'PCA-Group-Plot.pdf',
     content = function(file) {
-      pca.plot <- plotPCA(rld(), intgroup = 'Conditions')
-      ggsave(file, plot = pca.plot, device='pdf')
+      pca.s <- plotPCA(rld(), intgroup = 'Samples', returnData=TRUE)
+      
+      percentVar <- round(100 * attr(pca.s, "percentVar"))
+      
+      pca.pl <- ggplot(pca.s, aes(PC1, PC2, color=Samples)) +
+        geom_point(size=5, shape=15) +
+        xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+        ylab(paste0("PC2: ",percentVar[2],"% variance"))
+      
+      ggsave(file, plot = pca.pl, device='pdf',
+             height = 3,
+             width = 10)
     }
   )
   
@@ -384,7 +394,7 @@ server <- shinyServer(function(input, output) {
     filename = 'ClassEnrichment.pdf',
     content = function(file){
       p.class <- class.plot()
-      ggsave(file, plot = p.class, device = 'pdf')
+      ggsave(file, plot = p.class, device = 'pdf', width = 9, height = 5)
     }
   )
   
