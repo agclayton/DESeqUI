@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>DESeqUI by klprint</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1 class="header">DESeqUI</h1>
+        <p class="header">Trypanosome RNAseq analysis made easy</p>
+
+        <ul>
+          <li class="download"><a class="buttons" href="https://github.com/klprint/DESeqUI/zipball/master">Download ZIP</a></li>
+          <li class="download"><a class="buttons" href="https://github.com/klprint/DESeqUI/tarball/master">Download TAR</a></li>
+          <li><a class="buttons github" href="https://github.com/klprint/DESeqUI">View On GitHub</a></li>
+        </ul>
+
+        <p class="header">This project is maintained by <a class="header name" href="https://github.com/klprint">klprint</a></p>
+
+
+      </header>
+      <section>
+        <p><a href="https://zenodo.org/badge/latestdoi/62634385"><img src="https://zenodo.org/badge/62634385.svg" alt="DOI"></a></p>
+
+<h1>
+<a id="desequi" class="anchor" href="#desequi" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>DESeqUI</h1>
+
+<p>This shiny app is based on the package DESeq2 and provides a user interface for RNAseq data analysis. The app is designed for working with <strong>Trypanosoma brucei</strong> RNAseq data. Feel free to fork this repo and modify it as you wish. Pull requests are welcome.</p>
+
+<h2>
+<a id="dependencies" class="anchor" href="#dependencies" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Dependencies</h2>
+
+<ul>
+<li>shiny</li>
+<li>DESeq2</li>
+<li>ggplot2</li>
+<li>plotly</li>
+</ul>
+
+<h2>
+<a id="how-to-use-desequi" class="anchor" href="#how-to-use-desequi" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>How to use DESeqUI</h2>
+
+<h3>
+<a id="setup" class="anchor" href="#setup" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Setup</h3>
+
+<p>It is recommended to use <a href="https://www.rstudio.com">RStudio</a> for the following:</p>
+
+<ul>
+<li>Download the package</li>
+<li>Fire up RStudio and set the package directory as working directory</li>
+<li>open: DESeqUI/app.r in Rstudio</li>
+<li>Click 'Run App' (top right corner)</li>
+</ul>
+
+<p>The program will load its dependencies into the environment (observe RStudios console) and the user interface will appear.</p>
+
+<ul>
+<li>Click 'Browse' and select the Count-table</li>
+<li>Below the 'Browse'-Button, details about the file can be specified. If you used <a href="https://github.com/klprint/TrypRNAseq">TrypRNAseq</a> for data preparation, the default can be used</li>
+<li>If the upload of the data worked properly, the first couple of line of the file will be shown in the main-window</li>
+</ul>
+
+<p>Now set up the DESeq2 parameters:</p>
+
+<p><strong>Column description</strong>: Group the columns in the read file in their corresponding groups. For example, if the first three samples are treated and the following two control, write: treat,treat,treat,ctrl,ctrl</p>
+
+<p>The descriptions can be anything, but be consistent. You could have also written: t,t,t,c,c</p>
+
+<p>Please make sure not to use spacebar, just write down a comma-seperated list.</p>
+
+<p><strong>Normalization</strong>: Here, the contrast which should be studied can be defined. To keep our previous example, we are interested in significant differences between the treated and the control group. Therefore, we should enter: treat/ctrl</p>
+
+<p>If the data-frame consists of multiple groups, pick the ones you want to study.</p>
+
+<p><strong>Significance level</strong>: Here you can define which level of significance you want to set. The default DESeq2 value is 0.1 which was kept in DESeqUI.</p>
+
+<p><strong>Alternative Hypothesis</strong>: As the name implies, this option defines the alternative hypothesis which should be tested for, Depending on the experimental design.</p>
+
+<p>The class enrichment parameters can be left as they are for now.</p>
+
+<h3>
+<a id="data-analysis" class="anchor" href="#data-analysis" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Data analysis</h3>
+
+<ul>
+<li><p>Click on the PCA tab
+In the RStudio console you should see the programm working. Depending on the data-size, this can take some minutes. When the calculations are done a PCA-plot (principle component analysis) will be shown. The plot is interactive and by hovering over each point, its identity is shown as a tooltip</p></li>
+<li><p>Click on the DESeq tab
+A MA-plot will be generated according to the DESeq2 package description. For details please check out the vignette of DESeq2. In short: Each point represents one gene. Points which are colored red were identified as significantly (see above) different in both specified groups.</p></li>
+<li><p>Click on the Classes tab
+Here, class enrichment analysis can be done. Classes are specified using a currated list of genes (Prof. Christine Clayton). Using the <strong>Class enrichment Parameters</strong> panel, you can setup the analysis. If you are interested in the classes of genes which are upregulated (at least 2-fold) set up as follows: log2FoldChange -&gt; greater, Cutoff log2Fold-Change -&gt; 1. Now, the programm counts the class appearance in the defined subset of genes and tests whether each class appears more often than in the background (the unique gene list), using fishers exact test and adjustment of the p-value using the Benjamini-Hochberg method. The uppermost barplot shows the result of this analysis. Only classes below the user-defined level of significance will be reported. The p-adjusted value is displayed below each bar-group. If a 0 is printed, the p-adjusted value is below 0.001. The exact value is printed to the RStudio console.</p></li>
+</ul>
+
+<p>The next plot shows a boxplot which reports the distribution of each class within <strong>all</strong> significantly different genes in both groups. The red line indicates the log2FoldCutoff defined previously.</p>
+
+<p>The thrid plot, another barplot, reports the peak time during cellcycle for each subset significant gene. This plot is affected by the log2FoldChange option and the cutoff.</p>
+
+<p>The scatterplot below resembles in its coloring the MA-plot but shows the transcript length for each gene against their log2Fold change. Here, a length-bias could be identified. For example you did a RITseq experiment and the matrix you were using interacts with RNA itself. Therefore the longer the RNA the more it binds to the matrix. A bias like that would be visible in this plot.</p>
+
+<ul>
+<li>Click on Result Table
+This is a preview of the DESeq2 output table. It is subset using the Class Enrichment Parameters defined by the user. The full table can be downloaded using the download button.</li>
+</ul>
+
+<h2>
+<a id="references" class="anchor" href="#references" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>References</h2>
+
+<p>Love MI, Huber W and Anders S (2014). “Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2.” Genome Biology, 15, pp. 550. doi: <a href="http://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0550-8">10.1186/s13059-014-0550-8</a></p>
+      </section>
+      <footer>
+        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+		
+  </body>
+</html>
