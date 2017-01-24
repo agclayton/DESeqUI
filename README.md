@@ -46,7 +46,7 @@ If the data-frame consists of multiple groups, pick the ones you want to study.
 **Significance level**: Here you can define which level of significance you want to set. The default DESeq2 value is 0.1 which was kept in DESeqUI.
 
 
-**Alternative Hypothesis**: As the name implies, this option defines the alternative hypothesis which should be tested for, Depending on the experimental design.
+**Alternative Hypothesis**: As the name implies, this option defines the alternative hypothesis which should be tested for, depending on the experimental design: If you compare full transcriptomes and you want to see the full effect of treatment against control, keep the option at 'both'. If you did a pulldown and you only want to see, what is interacting with your protein, set it to 'Greater'.
 
 The class enrichment parameters can be left as they are for now.
 
@@ -59,13 +59,17 @@ In the RStudio console you should see the programm working. Depending on the dat
 A MA-plot will be generated according to the DESeq2 package description. For details please check out the vignette of DESeq2. In short: Each point represents one gene. Points which are colored red were identified as significantly (see above) different in both specified groups.
 
 - Click on the Classes tab
-Here, class enrichment analysis can be done. Classes are specified using a curated list of genes (Prof. Christine Clayton). Using the **Class enrichment Parameters** panel, you can setup the analysis. If you are interested in the classes of genes which are upregulated (at least 2-fold) set up as follows: log2FoldChange -> greater, Cutoff log2Fold-Change -> 1. Now, the programm counts the class appearance in the defined subset of genes and tests whether each class appears more often than in the background (the unique gene list), using fishers exact test and adjustment of the p-value using the Benjamini-Hochberg method. The uppermost barplot shows the result of this analysis. Only classes below the user-defined level of significance will be reported. The p-adjusted value is displayed below each bar-group. If a 0 is printed, the p-adjusted value is below 0.001. The exact value is printed to the RStudio console.
+Here, class enrichment of significantly differential expressed genes (according to DESeq2) analysis can be done. Classes are specified using a curated list of genes (Prof. Christine Clayton). Using the **Class enrichment Parameters** panel, you can setup the analysis. If you are interested in the classes of genes which are upregulated (at least 2-fold) set up as follows: log2FoldChange -> greater, Cutoff log2Fold-Change -> 1. Now, the program counts the class appearance in the defined subset of genes and tests whether each class appears more often than in the background (the unique gene list), using Fishers exact test and adjustment of the p-value using the Benjamini-Hochberg method. The uppermost barplot shows the result of this analysis. Only classes below the user-defined level of significance will be reported. The p-adjusted value is displayed below each bar-group. If a 0 is printed, the p-adjusted value is below 0.001. The exact value is printed to the RStudio console.
 
 The next plot shows a boxplot which reports the distribution of each class within **all** significantly different genes in both groups. The red line indicates the log2FoldCutoff defined previously.
 
-The thrid plot, another barplot, reports the peak time during cellcycle for each subset significant gene. This plot is affected by the log2FoldChange option and the cutoff.
+The third plot, another barplot, reports the peak time during cellcycle for each subset significant gene. This plot is affected by the log2FoldChange option and the cutoff.
 
 The scatterplot below resembles in its coloring the MA-plot but shows the transcript length for each gene against their log2Fold change. Here, a length-bias could be identified. For example you did a RITseq experiment and the matrix you were using interacts with RNA itself. Therefore the longer the RNA the more it binds to the matrix. A bias like that would be visible in this plot.
+
+**Attention**: If you specified in the DESeq2 parameters an alternative hypothesis of 'Greater' you can not do the class enrichment analysis for genes which show fewer mRNA abundance, obviously. If you want to do the class enrichment analysis on full transcriptomes, so that you can look at the up AND downregulated genes, keep the DESeq2 parameter 'Alternative Hypothesis' at 'both'!
+
+**Attention 2**: The 'Class enrichment parameter' 'log2Fold Change' specifies the subset of genes which show either higher ('Greater') or lower ('Less') abundance than control. The option 'both' is only added to have the boxplot across the whole range of significant (according to DESeq2) changes. The first plots output, if 'log2Fold Change' set to 'both', does not give any result, obviously.
 
 
 - Click on Result Table
