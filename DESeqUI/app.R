@@ -115,8 +115,6 @@ require(DESeq2)
 require(ggplot2)
 
 server <- shinyServer(function(input, output) {
-  gene.classes <- read.table('GeneClasses.txt', sep='\t', header=T)
-  # single.genes <- read.table('UniqueList.txt', sep='\t', header=T, row.names = 1, quote='')
   single.genes <- read.table('unique_list_transcLength.txt', 
                              sep='\t', header=T, row.names = 1, quote='')
   cell.cycle <- read.table('Gene_CellCycle_Peak.txt',
