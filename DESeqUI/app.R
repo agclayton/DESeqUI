@@ -56,6 +56,8 @@ ui <- shinyUI(fluidPage(
         tabPanel('Content',
                  downloadButton('rpm.dload',
                                 label = 'RPM data download'),
+                 downloadButton('rlog.dload',
+                                label = 'Rlog data download'),
                  tableOutput('contents'),
                  tableOutput('rpm.content')),
         
@@ -142,6 +144,15 @@ server <- shinyServer(function(input, output) {
     return(df)
   })
   
+  data.rlog <- reactive({
+    dds <- dds()
+    
+    rld <- rlog(dds, blind = F)
+    rld <- as.data.frame(assay(rld))
+    
+    return(rld)
+  })
+  
   output$rpm.content <- renderTable({
     if(is.null(data.rpm())){return(NULL)}else{head(data.rpm(), 30)}
   })
@@ -154,8 +165,17 @@ server <- shinyServer(function(input, output) {
       df <- data.frame('GeneID' = row.names(df),
                        df)
       write.table(df, file=file, sep='\t', row.names = F, quote = F)
-    }
-  )
+    })
+    
+  output$rlog.dload <- downloadHandler(
+    filename = 'Rlog_data.txt',
+    content = function(file){
+      rld <- data.rlog()
+      rld <- data.frame('GeneID' = row.names(rld),
+                        rld)
+      write.table(rld, file = file, sep='\t', row.names = F, quote = F)
+    })
+
   
   # Preview of input data
   output$contents <- renderTable({
