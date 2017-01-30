@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/62634385.svg)](https://zenodo.org/badge/latestdoi/62634385)
+![DOI](https://zenodo.org/badge/62634385.svg)](https://zenodo.org/badge/latestdoi/62634385)
 
 # DESeqUI
 This shiny app is based on the package DESeq2 and provides a user interface for RNAseq data analysis. The app is designed for working with **Trypanosoma brucei** RNAseq data. Feel free to fork this repo and modify it as you wish. Pull requests are welcome.
@@ -18,16 +18,17 @@ It is recommended to use [RStudio](https://www.rstudio.com).
 - open DESeqUI/app.r in Rstudio
 - Click 'Run App' (top right corner)
 
-The program will load its dependencies into the environment (observe RStudios console) and the user interface will appear.
+The program will load its dependencies into the environment (observe RStudios console) and the user interface will appear. On the left, there is the settings panel (see screenshot) which allows the user to define specific parameters for analysis. At the top of the app window, the tab-bar is located. Each tab shows the results of another analysis method. From left to right: PCA (shows a principal component analysis of the data), DESeq (MA-plot after DESeq2 analysis), Classes (class enrichment analysis), Results Table (Shows the final table for review and download).
 
-![](Screenshots/DESeqUIScreenshot.png)
+![General app layout.](Screenshots/DESeqUIScreenshot.png)
 
 - Click 'Browse' (top left in the app) and select the Count-table (tab or comma separated, first column geneIDs, following columns raw read counts of individual samples.)
 - Below the 'Browse'-Button, details about the file can be specified. If you used [TrypRNAseq](https://github.com/klprint/TrypRNAseq) for data preparation, the default can be used
 - If the upload of the data worked properly, the first couple of line of the file will be shown in the main-window
-- If no preview appears in the 'Content'-tab, the data was not loaded correctly. Please make sure to specify the correct parameters on the left, according to your file.
+- If no preview appears in the 'Content'-tab, the data was not loaded correctly. Please make sure to specify the correct parameters on the left, according to your file
+- You can download the reads RPM (reads per million) transformed (RPM data download button) or as regularised logarithm (rlog) transformed data (Rlog data download button). Before the latter can be used, please specify the DESeq2 parameters and click apply at the buttom of the settings panel
 
-![](Screenshots/DESeqUIScreenshot_InputPar.png)
+![Parameters for correct file input.](Screenshots/DESeqUIScreenshot_InputPar.png)
 
 Now set up the DESeq2 parameters:
 
@@ -74,6 +75,16 @@ The scatterplot below resembles in its coloring the MA-plot but shows the transc
 
 - Click on Result Table
 This is a preview of the DESeq2 output table. It is subset using the Class Enrichment Parameters defined by the user. The full table can be downloaded using the download button.
+
+## Trouble shooting
+### 'Content'-tab: 'x' must be an array of at least two dimensions'
+At the start of the app, the following error will be shown in the 'Content'-tab: ''x' must be an array of at least two dimensions'. This is normal behaviour, since no data-frame was inputed. Upload a data frame using the 'Browse' Button.
+
+### 'PCA'-tab: arguments imply differing number of rows: n, m
+This error occurs if the defined 'Column description' (DESeq2 parameters, settings panel) contains another number of  instances than the number of culumns of the provided data-set. Make sure to define for each column the right group.
+
+### 'Classes'-tab: Aesthetics must be either length 1 or the same as the data (1): y, label, x, fill
+If this error occurs where normaly a barplot was expected (at the top of the 'classes'-tab), it will be shown, since there is no class significantly over-represented. Try to relax your restrictions in the 'Class enrichment Parameters' in the settings panel.
 
 ## References
 Love MI, Huber W and Anders S (2014). “Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2.” Genome Biology, 15, pp. 550. doi: [10.1186/s13059-014-0550-8](http://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0550-8)
